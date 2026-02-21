@@ -29,6 +29,13 @@ const features: Feature[] = [
     color: '#b91c1c',
   },
   {
+    href: '/actions',
+    icon: '✅',
+    title: 'Action Center',
+    description: 'Turn insights into one-click maintainer actions for stale issues and PR workflow.',
+    color: '#047857',
+  },
+  {
     href: '/stale',
     icon: '🕓',
     title: 'Stale Issues',
