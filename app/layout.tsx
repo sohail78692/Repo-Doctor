@@ -4,6 +4,8 @@ import Script from 'next/script';
 import './globals.css';
 import { RepoProvider } from './components/RepoProvider';
 import { Sidebar } from './components/Sidebar';
+import { RepoSwitcher } from './components/RepoSwitcher';
+import { ThemeToggle } from './components/ThemeToggle';
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ['latin'],
@@ -20,6 +22,10 @@ const ibmPlexMono = IBM_Plex_Mono({
 export const metadata: Metadata = {
   title: 'GitHub Repo Doctor',
   description: 'All-in-one GitHub repository health tool — PR risk scoring, stale detection, changelog generation & more.',
+  icons: {
+    icon: '/icon.png',
+    apple: '/apple-icon.png',
+  },
 };
 
 const themeInitScript = `
@@ -54,6 +60,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
             {/* ── Page Content ── */}
             <div className="page-content">
+              <div className="workspace-bar">
+                <RepoSwitcher />
+                <ThemeToggle />
+              </div>
               {children}
             </div>
           </div>
