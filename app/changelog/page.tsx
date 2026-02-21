@@ -2,13 +2,13 @@
 
 import { useState } from 'react';
 import { useRepo } from './../components/RepoProvider';
+import { GeneratedMarkdownCard } from './../components/GeneratedMarkdownCard';
 
 export default function ChangelogPage() {
     const { activeRepo } = useRepo();
     const [changelog, setChangelog] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [copied, setCopied] = useState(false);
 
     async function generate() {
         setLoading(true);
@@ -24,18 +24,6 @@ export default function ChangelogPage() {
             setError(message);
         } finally {
             setLoading(false);
-        }
-    }
-
-    async function handleCopy() {
-        if (changelog) {
-            try {
-                await navigator.clipboard.writeText(changelog);
-                setCopied(true);
-                setTimeout(() => setCopied(false), 1800);
-            } catch {
-                setError('Failed to copy to clipboard');
-            }
         }
     }
 
@@ -70,35 +58,11 @@ export default function ChangelogPage() {
             </div>
 
             {changelog && (
-                <div className="glass-card" style={{ animation: 'fadeUp 0.3s ease both' }}>
-                    <div className="card-header-row" style={{ marginBottom: '1rem' }}>
-                        <p className="card-title" style={{ marginBottom: 0 }}>Result (Markdown)</p>
-                        <button className="btn btn-ghost" onClick={handleCopy} style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem' }}>
-                            📋 Copy Raw
-                        </button>
-                    </div>
-
-                    {copied && (
-                        <div className="banner info" style={{ marginBottom: '0.85rem' }}>
-                            <span>✅</span> Copied to clipboard
-                        </div>
-                    )}
-
-                    <pre style={{
-                        background: 'var(--bg-secondary)',
-                        padding: '1.25rem',
-                        borderRadius: '14px',
-                        border: '1px solid var(--card-border)',
-                        color: 'var(--text-main)',
-                        fontFamily: 'var(--font-mono)',
-                        fontSize: '0.85rem',
-                        overflowX: 'auto',
-                        whiteSpace: 'pre-wrap',
-                        lineHeight: 1.6
-                    }}>
-                        {changelog}
-                    </pre>
-                </div>
+                <GeneratedMarkdownCard
+                    title="Release Changelog"
+                    content={changelog}
+                    fileName="changelog.md"
+                />
             )}
         </>
     );
