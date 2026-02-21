@@ -22,6 +22,13 @@ const features: Feature[] = [
     color: '#0f766e',
   },
   {
+    href: '/alerts',
+    icon: '🚨',
+    title: 'Smart Alerts',
+    description: 'Set thresholds and dispatch webhook alerts when repo health signals cross your limits.',
+    color: '#b91c1c',
+  },
+  {
     href: '/stale',
     icon: '🕓',
     title: 'Stale Issues',

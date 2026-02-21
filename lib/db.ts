@@ -15,6 +15,9 @@ export async function connectToDatabase(): Promise<{ client: MongoClient; db: Db
     await db.collection('issue_snapshots').createIndex({ repo: 1, createdAt: -1 });
     await db.collection('weekly_reports').createIndex({ repo: 1, weekStart: -1 });
     await db.collection('scan_results').createIndex({ repo: 1, createdAt: -1 });
+    await db.collection('alert_settings').createIndex({ repo: 1 }, { unique: true });
+    await db.collection('alert_deliveries').createIndex({ repo: 1, ruleId: 1, sentAt: -1 });
+    await db.collection('alert_deliveries').createIndex({ repo: 1, sentAt: -1 });
 
     return { client, db };
 }

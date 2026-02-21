@@ -8,6 +8,7 @@ const navLinks = [
     { href: '/', icon: '◈', label: 'Dashboard' },
     { href: '/pr', icon: '⚡', label: 'PR Analyzer' },
     { href: '/commits', icon: '📈', label: 'Commit History' },
+    { href: '/alerts', icon: '🚨', label: 'Smart Alerts' },
     { href: '/stale', icon: '🕓', label: 'Stale Issues' },
     { href: '/changelog', icon: '📋', label: 'Changelog' },
     { href: '/report', icon: '📊', label: 'Weekly Report' },

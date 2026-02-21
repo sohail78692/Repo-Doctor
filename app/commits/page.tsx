@@ -5,6 +5,8 @@ import {
     Bar,
     BarChart,
     CartesianGrid,
+    ComposedChart,
+    Legend,
     Line,
     LineChart,
     ResponsiveContainer,
@@ -40,6 +42,48 @@ type CommitHistoryPayload = {
     error?: string;
 };
 
+type TrendWindow = '7' | '30' | '90';
+
+type TrendWindowMetrics = {
+    commits: number;
+    commitVelocity: number;
+    mergedPrs: number;
+    avgMergeHours: number | null;
+    issuesOpened: number;
+    issuesClosed: number;
+    issueCloseRate: number | null;
+    staleMarked: number;
+    staleResolved: number;
+    staleGrowth: number;
+};
+
+type TimeTrendsPayload = {
+    success: boolean;
+    repo: string;
+    generatedAt: string;
+    lookbackDays: number;
+    metrics: Record<TrendWindow, TrendWindowMetrics>;
+    totals: {
+        staleOpenNow: number | null;
+        commitsLast90d: number;
+        mergedPrsLast90d: number;
+        issuesOpenedLast90d: number;
+        issuesClosedLast90d: number;
+    };
+    series: {
+        commits: Array<{ date: string; count: number }>;
+        mergeTime: Array<{ date: string; mergedPrs: number; avgHours: number | null }>;
+        issueCloseRate: Array<{ date: string; opened: number; closed: number; closeRate: number | null }>;
+        staleGrowth: Array<{ date: string; marked: number; resolved: number; net: number; cumulative: number }>;
+    };
+    truncated: {
+        commits: boolean;
+        pulls: boolean;
+        issues: boolean;
+    };
+    error?: string;
+};
+
 function formatIsoDate(value: string | null) {
     if (!value) return 'N/A';
     const date = new Date(value);
@@ -50,6 +94,16 @@ function formatIsoDate(value: string | null) {
     });
 }
 
+function formatNumber(value: number | null, fallback = 'N/A') {
+    if (value === null || Number.isNaN(value)) return fallback;
+    return value.toLocaleString();
+}
+
+function formatDecimal(value: number | null, suffix = '', fallback = 'N/A') {
+    if (value === null || Number.isNaN(value)) return fallback;
+    return `${value.toFixed(2)}${suffix}`;
+}
+
 export default function CommitsPage() {
     const { activeRepo } = useRepo();
     const [scope, setScope] = useState<Scope>('full');
@@ -57,8 +111,21 @@ export default function CommitsPage() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [data, setData] = useState<CommitHistoryPayload | null>(null);
+    const [trendsLoading, setTrendsLoading] = useState(false);
+    const [trendsError, setTrendsError] = useState<string | null>(null);
+    const [trends, setTrends] = useState<TimeTrendsPayload | null>(null);
+    const [trendWindow, setTrendWindow] = useState<TrendWindow>('30');
 
     const dayRangeOptions = useMemo(() => [30, 90, 180, 365, 730], []);
+    const trendWindows = useMemo(() => ['7', '30', '90'] as const, []);
+    const axisTickStyle = useMemo(() => ({ fill: 'var(--text-muted)', fontSize: 11 }), []);
+    const tooltipStyle = useMemo(() => ({
+        backgroundColor: 'var(--bg-secondary)',
+        border: '1px solid var(--card-border)',
+        borderRadius: '10px',
+        color: 'var(--text-main)',
+    }), []);
+    const selectedTrendMetrics = trends?.metrics[trendWindow] ?? null;
 
     useEffect(() => {
         if (!activeRepo) return;
@@ -96,6 +163,40 @@ export default function CommitsPage() {
             cancelled = true;
         };
     }, [activeRepo, scope, days]);
+
+    useEffect(() => {
+        if (!activeRepo) {
+            setTrends(null);
+            return;
+        }
+
+        let cancelled = false;
+        async function loadTimeTrends() {
+            setTrendsLoading(true);
+            setTrendsError(null);
+
+            try {
+                const res = await fetch(`/api/time-trends?repo=${encodeURIComponent(activeRepo)}`);
+                const json = await res.json();
+
+                if (!res.ok || !json.success) {
+                    throw new Error(json.error || `HTTP ${res.status}`);
+                }
+
+                if (!cancelled) setTrends(json);
+            } catch (fetchError: unknown) {
+                const message = fetchError instanceof Error ? fetchError.message : 'Failed to fetch time trends';
+                if (!cancelled) setTrendsError(message);
+            } finally {
+                if (!cancelled) setTrendsLoading(false);
+            }
+        }
+
+        void loadTimeTrends();
+        return () => {
+            cancelled = true;
+        };
+    }, [activeRepo]);
 
     return (
         <>
@@ -210,16 +311,11 @@ export default function CommitsPage() {
                                 <ResponsiveContainer>
                                     <LineChart data={data.charts.daily}>
                                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(100, 116, 139, 0.24)" />
-                                        <XAxis dataKey="date" tick={{ fill: '#64748b', fontSize: 11 }} minTickGap={36} />
-                                        <YAxis tick={{ fill: '#64748b', fontSize: 11 }} />
+                                        <XAxis dataKey="date" tick={axisTickStyle} minTickGap={36} />
+                                        <YAxis tick={axisTickStyle} />
                                         <Tooltip
                                             cursor={{ stroke: 'transparent', fill: 'transparent' }}
-                                            contentStyle={{
-                                                backgroundColor: 'var(--bg-secondary)',
-                                                border: '1px solid var(--card-border)',
-                                                borderRadius: '10px',
-                                                color: 'var(--text-main)',
-                                            }}
+                                            contentStyle={tooltipStyle}
                                             labelStyle={{ color: 'var(--text-main)', fontWeight: 600 }}
                                             itemStyle={{ color: 'var(--text-main)' }}
                                         />
@@ -243,16 +339,11 @@ export default function CommitsPage() {
                                 <ResponsiveContainer>
                                     <BarChart data={data.charts.monthly}>
                                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(100, 116, 139, 0.24)" />
-                                        <XAxis dataKey="month" tick={{ fill: '#64748b', fontSize: 11 }} minTickGap={20} />
-                                        <YAxis tick={{ fill: '#64748b', fontSize: 11 }} />
+                                        <XAxis dataKey="month" tick={axisTickStyle} minTickGap={20} />
+                                        <YAxis tick={axisTickStyle} />
                                         <Tooltip
                                             cursor={{ stroke: 'transparent', fill: 'transparent' }}
-                                            contentStyle={{
-                                                backgroundColor: 'var(--bg-secondary)',
-                                                border: '1px solid var(--card-border)',
-                                                borderRadius: '10px',
-                                                color: 'var(--text-main)',
-                                            }}
+                                            contentStyle={tooltipStyle}
                                             labelStyle={{ color: 'var(--text-main)', fontWeight: 600 }}
                                             itemStyle={{ color: 'var(--text-main)' }}
                                         />
@@ -269,16 +360,11 @@ export default function CommitsPage() {
                                 <ResponsiveContainer>
                                     <BarChart data={data.charts.contributors}>
                                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(100, 116, 139, 0.24)" />
-                                        <XAxis dataKey="author" tick={{ fill: '#64748b', fontSize: 11 }} minTickGap={24} />
-                                        <YAxis tick={{ fill: '#64748b', fontSize: 11 }} />
+                                        <XAxis dataKey="author" tick={axisTickStyle} minTickGap={24} />
+                                        <YAxis tick={axisTickStyle} />
                                         <Tooltip
                                             cursor={{ stroke: 'transparent', fill: 'transparent' }}
-                                            contentStyle={{
-                                                backgroundColor: 'var(--bg-secondary)',
-                                                border: '1px solid var(--card-border)',
-                                                borderRadius: '10px',
-                                                color: 'var(--text-main)',
-                                            }}
+                                            contentStyle={tooltipStyle}
                                             labelStyle={{ color: 'var(--text-main)', fontWeight: 600 }}
                                             itemStyle={{ color: 'var(--text-main)' }}
                                         />
@@ -295,21 +381,222 @@ export default function CommitsPage() {
                                 <ResponsiveContainer>
                                     <BarChart data={data.charts.weekdays}>
                                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(100, 116, 139, 0.24)" />
-                                        <XAxis dataKey="day" tick={{ fill: '#64748b', fontSize: 11 }} interval={0} />
-                                        <YAxis tick={{ fill: '#64748b', fontSize: 11 }} />
+                                        <XAxis dataKey="day" tick={axisTickStyle} interval={0} />
+                                        <YAxis tick={axisTickStyle} />
                                         <Tooltip
                                             cursor={{ stroke: 'transparent', fill: 'transparent' }}
-                                            contentStyle={{
-                                                backgroundColor: 'var(--bg-secondary)',
-                                                border: '1px solid var(--card-border)',
-                                                borderRadius: '10px',
-                                                color: 'var(--text-main)',
-                                            }}
+                                            contentStyle={tooltipStyle}
                                             labelStyle={{ color: 'var(--text-main)', fontWeight: 600 }}
                                             itemStyle={{ color: 'var(--text-main)' }}
                                         />
                                         <Bar dataKey="count" fill="#be123c" radius={[6, 6, 0, 0]} />
                                     </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+                    </div>
+                </>
+            )}
+
+            {trendsError && (
+                <div className="banner error" style={{ marginBottom: '1rem' }}>
+                    <span>⚠️</span> Time trends: {trendsError}
+                </div>
+            )}
+
+            {trendsLoading && (
+                <div className="glass-card" style={{ marginBottom: '1rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                        <span className="spinner" />
+                        Loading 7/30/90 day trends...
+                    </div>
+                </div>
+            )}
+
+            {trends && selectedTrendMetrics && !trendsLoading && (
+                <>
+                    <div className="glass-card" style={{ marginBottom: '1.25rem' }}>
+                        <div className="card-header-row">
+                            <div>
+                                <p className="card-title">Time Trends (7 / 30 / 90 days)</p>
+                                <p className="card-subtitle">
+                                    Windowed engineering signals across commits, PRs, issues, and stale backlog.
+                                </p>
+                            </div>
+                            <div style={{ display: 'flex', gap: '0.45rem', flexWrap: 'wrap' }}>
+                                {trendWindows.map(windowValue => (
+                                    <button
+                                        key={windowValue}
+                                        className={`btn ${trendWindow === windowValue ? 'btn-primary' : ''}`}
+                                        onClick={() => setTrendWindow(windowValue)}
+                                    >
+                                        {windowValue}d
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="status-grid" style={{ marginTop: '0.8rem' }}>
+                            <div className="status-item">
+                                <span className="status-label">Commit Velocity</span>
+                                <span className="status-value">{formatDecimal(selectedTrendMetrics.commitVelocity, ' / day')}</span>
+                            </div>
+                            <div className="status-item">
+                                <span className="status-label">Avg PR Merge Time</span>
+                                <span className="status-value">{formatDecimal(selectedTrendMetrics.avgMergeHours, 'h')}</span>
+                            </div>
+                            <div className="status-item">
+                                <span className="status-label">Issue Close Rate</span>
+                                <span className="status-value">{formatDecimal(selectedTrendMetrics.issueCloseRate, '%')}</span>
+                            </div>
+                            <div className="status-item">
+                                <span className="status-label">Stale Growth</span>
+                                <span
+                                    className="status-value"
+                                    style={{ color: selectedTrendMetrics.staleGrowth > 0 ? 'var(--warning)' : 'var(--success)' }}
+                                >
+                                    {selectedTrendMetrics.staleGrowth > 0 ? '+' : ''}
+                                    {selectedTrendMetrics.staleGrowth.toLocaleString()}
+                                </span>
+                            </div>
+                            <div className="status-item">
+                                <span className="status-label">Open Stale Issues</span>
+                                <span className="status-value">{formatNumber(trends.totals.staleOpenNow)}</span>
+                            </div>
+                        </div>
+
+                        <div style={{ marginTop: '0.9rem', color: 'var(--text-muted)', fontSize: '0.82rem' }}>
+                            Selected window totals: {selectedTrendMetrics.commits.toLocaleString()} commits,{' '}
+                            {selectedTrendMetrics.mergedPrs.toLocaleString()} merged PRs,{' '}
+                            {selectedTrendMetrics.issuesOpened.toLocaleString()} opened issues,{' '}
+                            {selectedTrendMetrics.issuesClosed.toLocaleString()} closed issues.
+                        </div>
+
+                        {(trends.truncated.commits || trends.truncated.pulls || trends.truncated.issues) && (
+                            <div className="banner info" style={{ marginTop: '0.9rem' }}>
+                                <span>ℹ️</span> Some trend data was capped for performance on large repositories.
+                            </div>
+                        )}
+                    </div>
+
+                    <div
+                        style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+                            gap: '1rem',
+                            marginBottom: '1.2rem',
+                            maxWidth: '980px',
+                        }}
+                    >
+                        <div className="glass-card" style={{ marginBottom: 0 }}>
+                            <p className="card-title">Commit Velocity (Daily)</p>
+                            <p className="card-subtitle">Commits per day over the last 90 days</p>
+                            <div style={{ width: '100%', height: 280 }}>
+                                <ResponsiveContainer>
+                                    <LineChart data={trends.series.commits}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(100, 116, 139, 0.24)" />
+                                        <XAxis dataKey="date" tick={axisTickStyle} minTickGap={36} />
+                                        <YAxis tick={axisTickStyle} />
+                                        <Tooltip
+                                            cursor={{ stroke: 'transparent', fill: 'transparent' }}
+                                            contentStyle={tooltipStyle}
+                                            labelStyle={{ color: 'var(--text-main)', fontWeight: 600 }}
+                                            itemStyle={{ color: 'var(--text-main)' }}
+                                        />
+                                        <Line
+                                            type="monotone"
+                                            dataKey="count"
+                                            name="Commits"
+                                            stroke="#0f766e"
+                                            strokeWidth={2}
+                                            dot={false}
+                                            activeDot={{ r: 4 }}
+                                        />
+                                    </LineChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+
+                        <div className="glass-card" style={{ marginBottom: 0 }}>
+                            <p className="card-title">PR Merge Time (Daily Avg)</p>
+                            <p className="card-subtitle">Average hours from PR creation to merge</p>
+                            <div style={{ width: '100%', height: 280 }}>
+                                <ResponsiveContainer>
+                                    <LineChart data={trends.series.mergeTime}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(100, 116, 139, 0.24)" />
+                                        <XAxis dataKey="date" tick={axisTickStyle} minTickGap={36} />
+                                        <YAxis tick={axisTickStyle} />
+                                        <Tooltip
+                                            cursor={{ stroke: 'transparent', fill: 'transparent' }}
+                                            contentStyle={tooltipStyle}
+                                            labelStyle={{ color: 'var(--text-main)', fontWeight: 600 }}
+                                            itemStyle={{ color: 'var(--text-main)' }}
+                                        />
+                                        <Line
+                                            type="monotone"
+                                            dataKey="avgHours"
+                                            name="Avg merge hours"
+                                            stroke="#2563eb"
+                                            strokeWidth={2}
+                                            connectNulls
+                                            dot={false}
+                                            activeDot={{ r: 4 }}
+                                        />
+                                    </LineChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+
+                        <div className="glass-card" style={{ marginBottom: 0 }}>
+                            <p className="card-title">Issue Open vs Close Flow</p>
+                            <p className="card-subtitle">Daily issue inflow and resolution trend</p>
+                            <div style={{ width: '100%', height: 280 }}>
+                                <ResponsiveContainer>
+                                    <BarChart data={trends.series.issueCloseRate}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(100, 116, 139, 0.24)" />
+                                        <XAxis dataKey="date" tick={axisTickStyle} minTickGap={36} />
+                                        <YAxis tick={axisTickStyle} />
+                                        <Tooltip
+                                            cursor={{ stroke: 'transparent', fill: 'transparent' }}
+                                            contentStyle={tooltipStyle}
+                                            labelStyle={{ color: 'var(--text-main)', fontWeight: 600 }}
+                                            itemStyle={{ color: 'var(--text-main)' }}
+                                        />
+                                        <Legend />
+                                        <Bar dataKey="opened" name="Opened" fill="#ea580c" radius={[6, 6, 0, 0]} />
+                                        <Bar dataKey="closed" name="Closed" fill="#16a34a" radius={[6, 6, 0, 0]} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+
+                        <div className="glass-card" style={{ marginBottom: 0 }}>
+                            <p className="card-title">Stale Growth (Net + Backlog Trend)</p>
+                            <p className="card-subtitle">Daily net stale change and cumulative trajectory</p>
+                            <div style={{ width: '100%', height: 280 }}>
+                                <ResponsiveContainer>
+                                    <ComposedChart data={trends.series.staleGrowth}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(100, 116, 139, 0.24)" />
+                                        <XAxis dataKey="date" tick={axisTickStyle} minTickGap={36} />
+                                        <YAxis tick={axisTickStyle} />
+                                        <Tooltip
+                                            cursor={{ stroke: 'transparent', fill: 'transparent' }}
+                                            contentStyle={tooltipStyle}
+                                            labelStyle={{ color: 'var(--text-main)', fontWeight: 600 }}
+                                            itemStyle={{ color: 'var(--text-main)' }}
+                                        />
+                                        <Legend />
+                                        <Bar dataKey="net" name="Net stale growth" fill="#f59e0b" radius={[6, 6, 0, 0]} />
+                                        <Line
+                                            type="monotone"
+                                            dataKey="cumulative"
+                                            name="Cumulative net"
+                                            stroke="#be123c"
+                                            strokeWidth={2}
+                                            dot={false}
+                                            activeDot={{ r: 4 }}
+                                        />
+                                    </ComposedChart>
                                 </ResponsiveContainer>
                             </div>
                         </div>
