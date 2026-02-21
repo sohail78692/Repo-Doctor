@@ -1,0 +1,18 @@
+name: Repo Doctor - Weekly Report
+
+on:
+  schedule:
+    - cron: '0 0 * * 1' # Every Monday at midnight
+  workflow_dispatch:
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Stale Scan
+        run: |
+          curl -X POST "${{ secrets.REPO_DOCTOR_URL }}/api/stale"
+      
+      - name: Generate Weekly Report
+        run: |
+          curl -X POST "${{ secrets.REPO_DOCTOR_URL }}/api/weekly-report"

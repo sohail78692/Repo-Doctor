@@ -1,0 +1,17 @@
+name: Repo Doctor - PR Analysis
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Analysis
+        run: |
+          curl -X POST "${{ secrets.REPO_DOCTOR_URL }}/api/analyze-pr" \
+          -H "Content-Type: application/json" \
+          -d "{\"pull_number\": ${{ github.event.pull_request.number }}}"
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,14 @@
+name: Repo Doctor - Changelog
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  changelog:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate Changelog
+        run: |
+          curl -X POST "${{ secrets.REPO_DOCTOR_URL }}/api/changelog"

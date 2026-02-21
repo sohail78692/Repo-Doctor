@@ -1,0 +1,51 @@
+{
+    "pathRules": [
+        {
+            "pattern": "auth/",
+            "label": "area/auth"
+        },
+        {
+            "pattern": "infra/",
+            "label": "area/infra"
+        },
+        {
+            "pattern": "docs/",
+            "label": "area/docs"
+        },
+        {
+            "pattern": "test/",
+            "label": "area/tests"
+        }
+    ],
+    "titleRules": [
+        {
+            "regex": "^feat:",
+            "label": "type/feature"
+        },
+        {
+            "regex": "^fix:",
+            "label": "type/bug"
+        },
+        {
+            "regex": "^docs:",
+            "label": "type/docs"
+        }
+    ],
+    "sizeRules": {
+        "s": {
+            "max": 100,
+            "label": "size/s"
+        },
+        "m": {
+            "max": 500,
+            "label": "size/m"
+        },
+        "l": {
+            "max": 1000,
+            "label": "size/l"
+        },
+        "xl": {
+            "label": "size/xl"
+        }
+    }
+}

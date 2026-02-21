@@ -1,0 +1,12 @@
+{
+    "staleThresholdDays": 30,
+    "closeThresholdDays": 7,
+    "staleMessage": "This issue has been automatically marked as stale because it has not had recent activity. It will be closed if no further activity occurs. Thank you for your contributions.",
+    "closeMessage": "This issue has been closed because it has been stale for a long time. Feel free to reopen if this is still relevant.",
+    "ignoreLabels": [
+        "pinned",
+        "security",
+        "never-stale"
+    ],
+    "staleLabel": "stale"
+}
