@@ -84,6 +84,21 @@ type TimeTrendsPayload = {
     error?: string;
 };
 
+const WEEKDAY_SHORT_LABEL: Record<string, string> = {
+    Monday: 'Mon',
+    Tuesday: 'Tue',
+    Wednesday: 'Wed',
+    Thursday: 'Thu',
+    Friday: 'Fri',
+    Saturday: 'Sat',
+    Sunday: 'Sun',
+};
+
+function formatWeekdayTick(value: string | number) {
+    const day = String(value);
+    return WEEKDAY_SHORT_LABEL[day] || day;
+}
+
 function formatIsoDate(value: string | null) {
     if (!value) return 'N/A';
     const date = new Date(value);
@@ -381,7 +396,12 @@ export default function CommitsPage() {
                                 <ResponsiveContainer>
                                     <BarChart data={data.charts.weekdays}>
                                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(100, 116, 139, 0.24)" />
-                                        <XAxis dataKey="day" tick={axisTickStyle} interval={0} />
+                                        <XAxis
+                                            dataKey="day"
+                                            tick={axisTickStyle}
+                                            interval={0}
+                                            tickFormatter={formatWeekdayTick}
+                                        />
                                         <YAxis tick={axisTickStyle} />
                                         <Tooltip
                                             cursor={{ stroke: 'transparent', fill: 'transparent' }}
